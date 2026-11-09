@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Knowledge Base | AI Workforce{% endblock %}
+{% block body_class %}page-knowledge{% endblock %}
+{% block page_title %}Knowledge Base{% endblock %}
+{% block page_subtitle %}
+    Enterprise document ingestion and RAG search for grounding AI employee answers with source citations.
+{% endblock %}
+
+{% block page_actions %}
+    <a href="{% url 'agents' %}" class="btn btn--secondary">
+        <i class="fa-solid fa-robot" aria-hidden="true"></i> Ask AI Employees
+    </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-kpi u-mb-6">
+    {% include 'partials/_kpi_tile.html' with label="Documents Uploaded" value=total_documents icon="fa-file-lines" tone="primary" %}
+    {% include 'partials/_kpi_tile.html' with label="Text Chunks Indexed" value=total_chunks icon="fa-cubes" tone="success" %}
+    {% include 'partials/_kpi_tile.html' with label="RAG Citations Active" value=total_chunks icon="fa-quote-left" tone="info" %}
+</div>
+
+<div class="grid grid-2-col u-mb-6">
+    <!-- Upload Card -->
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload Enterprise Document</h2>
+        </div>
+        <div class="card__body">
+            <form action="{% url 'document_upload' %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group u-mb-3">
+                    <label class="form-label" for="docTitle">Document Title</label>
+                    <input class="form-input" id="docTitle" type="text" name="title" placeholder="e.g. Q3 Company Policy & Guidelines">
+                </div>
+                <div class="form-group u-mb-4">
+                    <label class="form-label" for="docFile">File (PDF, DOCX, TXT, MD)</label>
+                    <input class="form-input" id="docFile" type="file" name="file" required>
+                </div>
+                <button type="submit" class="btn btn--primary btn--block">
+                    <i class="fa-solid fa-upload" aria-hidden="true"></i> Upload & Ingest into RAG
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Card -->
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Test RAG Citation Search</h2>
+        </div>
+        <div class="card__body">
+            <form action="{% url 'knowledge_base' %}" method="get" class="u-mb-4">
+                <div class="form-group">
+                    <label class="form-label" for="ragSearch">Query Knowledge Base</label>
+                    <div class="input-group">
+                        <input class="form-input" id="ragSearch" type="search" name="q" value="{{ search_query }}" placeholder="e.g. What is our remote work policy?">
+                        <button type="submit" class="btn btn--primary">Search</button>
+                    </div>
+                </div>
+            </form>
+
+            {% if search_query %}
+                <h3 class="u-mb-2">Search Results for "{{ search_query }}":</h3>
+                {% if search_results %}
+                    <div class="search-results-list">
+                        {% for chunk, score in search_results %}
+                            <div class="card card--subtle u-mb-3 u-p-3">
+                                <div class="u-flex u-justify-between u-align-center u-mb-1">
+                                    <strong>{{ chunk.document.title }} (Page {{ chunk.page_number }})</strong>
+                                    <span class="badge badge--success">Score: {{ score|floatformat:2 }}</span>
+                                </div>
+                                <p class="u-text-sm u-mb-2">{{ chunk.content|truncatewords:40 }}</p>
+                                <code class="u-text-xs u-color-muted">{{ chunk.citation_label }}</code>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="u-color-muted">No relevant document chunks found for this query.</p>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Document List Table -->
+<div class="card">
+    <div class="card__header">
+        <h2 class="card__title"><i class="fa-solid fa-book" aria-hidden="true"></i> Indexed Documents</h2>
+    </div>
+    <div class="card__body u-p-0">
+        {% if documents %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Document Title</th>
+                            <th>Type</th>
+                            <th>File Size</th>
+                            <th>Indexed Chunks</th>
+                            <th>Uploaded</th>
+                            <th class="u-text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                            <tr>
+                                <td>
+                                    <strong>{{ doc.title }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge badge--info">{{ doc.file_type|upper }}</span>
+                                </td>
+                                <td>{{ doc.file_size|filesizeformat }}</td>
+                                <td>
+                                    <span class="badge badge--primary">{{ doc.chunk_count }} chunks</span>
+                                </td>
+                                <td>{{ doc.created_at|date:"d M Y, H:i" }}</td>
+                                <td class="u-text-right">
+                                    <form action="{% url 'document_delete' doc.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Delete this document and its RAG index?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn--danger btn--sm" title="Delete document">
+                                            <i class="fa-solid fa-trash" aria-hidden="true"></i> Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state u-p-6 text-center">
+                <i class="fa-solid fa-folder-open empty-state__icon u-mb-3" aria-hidden="true"></i>
+                <h3>No enterprise documents uploaded yet</h3>
+                <p class="u-color-muted">Upload PDF, DOCX, or TXT documents above to give AI employees company context.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
